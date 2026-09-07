@@ -1,0 +1,10 @@
+[Unit]
+Description=Fresh router-native dashboard identity export
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/self-hosted-music/home-network-dashboard/app
+ExecStart=/usr/bin/python3 -m dashboard.inventory --router root@192.168.1.1 --key /home/joskmo/.ssh/openwrt_traffic_ed25519 --output /srv/self-hosted-music/home-network-dashboard/inventory/devices.json
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+TimeoutStartSec=25

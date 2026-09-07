@@ -1,0 +1,12 @@
+# Opt-in bootstrap ingress: HTTPS, home LAN only, public application gate remains off.
+# Pin DASHBOARD_TRUSTED_LAN_PROXY to the verified Traefik container IP on web.
+# Traefik forwardedHeaders.insecure must be false; ipAllowList uses direct peer.
+services:
+  dashboard:
+    environment:
+      DASHBOARD_PUBLIC_ENABLED: "false"
+      DASHBOARD_TRUSTED_LAN_PROXY: ${DASHBOARD_TRUSTED_LAN_PROXY:?Set the exact verified Traefik IP on web}
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.home-network.middlewares: home-network-lan-only
+      traefik.http.middlewares.home-network-lan-only.ipallowlist.sourcerange: ${DASHBOARD_LAN_NETWORK:-192.168.1.0/24}

@@ -1,0 +1,56 @@
+"""All user-facing text. Russian is the default; unknown locales fall back safely."""
+
+CATALOG = {
+    "en": {
+        "help": "Private network traffic reports (Europe/Moscow).\n/today — today\n/yesterday — yesterday\n/status — collection health\n/language ru or /language en — language\nDaily previous-day report at 09:00 MSK. Collection every 5 minutes. Reports are partial until sufficient history exists.",
+        "language": "Language set to English.",
+        "language_help": "Choose: /language ru or /language en",
+        "status": "Last successful collection: {last}\nCollection state: {health}\nCollection every 5 minutes; daily report 09:00 Europe/Moscow.\nMeasured deltas only; no historical backfill. Counter resets and unobserved gaps can undercount traffic.",
+        "never": "never",
+        "healthy": "OK",
+        "failed": "collection failed; retrying",
+        "error": "The request could not be completed. Please try again later.",
+        "unknown": "Unknown command. Use /start for help.",
+        "other": "Other devices",
+        "empty": "No measured traffic deltas\n(no history is invented)",
+        "title": "{day} · Europe/Moscow\nMeasured RX + TX (not a full-day estimate)",
+        "complete": "Complete coverage",
+        "incomplete": "Incomplete coverage",
+        "caption": "Traffic for {day} · Europe/Moscow\nRX + TX: {total:.2f} MiB; devices with measured deltas: {count}.\n{state}: {covered:.1f} of {expected:.1f} hours.\nMeasured deltas only, not a full-day estimate. Baselines, long gaps and midnight-crossing intervals are excluded.\nDiagnostics: {issues}.",
+        "none": "no recorded events",
+        "initial baseline": "initial baseline",
+        "new device baseline": "new device baseline",
+        "counter reset": "counter reset",
+        "collection gap": "collection gap",
+        "midnight boundary": "midnight boundary",
+        "device disappeared": "device disappeared",
+    },
+    "ru": {
+        "help": "Личные отчёты о трафике (Europe/Moscow).\n/today — сегодня\n/yesterday — вчера\n/status — состояние сбора\n/language ru или /language en — язык\nОтчёт за прошлый день ежедневно в 09:00 МСК. Сбор каждые 5 минут. Пока нет достаточной истории, отчёты неполные.",
+        "language": "Выбран русский язык.",
+        "language_help": "Выберите: /language ru или /language en",
+        "status": "Последний успешный сбор: {last}\nСостояние сбора: {health}\nСбор каждые 5 минут; отчёт в 09:00 Europe/Moscow.\nТолько измеренные приросты; старые данные не восстанавливаются. Сбросы счётчиков и пропуски могут занижать результат.",
+        "never": "ещё не было",
+        "healthy": "исправно",
+        "failed": "ошибка сбора; повторим попытку",
+        "error": "Не удалось выполнить запрос. Попробуйте позже.",
+        "unknown": "Неизвестная команда. Справка: /start.",
+        "other": "Остальные устройства",
+        "empty": "Нет измеренных приростов трафика\n(история не выдумывается)",
+        "title": "{day} · Europe/Moscow\nИзмеренный RX + TX (не оценка полных суток)",
+        "complete": "Полное покрытие",
+        "incomplete": "Неполное покрытие",
+        "caption": "Трафик за {day} · Europe/Moscow\nRX + TX: {total:.2f} MiB; устройств с измеренным приростом: {count}.\n{state}: {covered:.1f} из {expected:.1f} ч.\nТолько измеренные приросты, не оценка полных суток. Начальные счётчики, длинные пропуски и интервалы через полночь исключены.\nДиагностика: {issues}.",
+        "none": "нет зарегистрированных событий",
+        "initial baseline": "начальная точка отсчёта",
+        "new device baseline": "начальный отсчёт нового устройства",
+        "counter reset": "сброс счётчика",
+        "collection gap": "пропуск сбора",
+        "midnight boundary": "граница суток",
+        "device disappeared": "устройство исчезло",
+    },
+}
+
+
+def translate(language, key, **values):
+    return CATALOG.get(language, CATALOG["ru"])[key].format(**values)

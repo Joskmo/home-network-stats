@@ -1,0 +1,67 @@
+#!/bin/ash
+# Native read-only OpenWrt collector. No Python, daemon, or arbitrary shell evaluation.
+set -e
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+if [ "${1:-}" = "--ssh" ]; then
+    case "${SSH_ORIGINAL_COMMAND:-}" in
+        '/usr/libexec/home-network-read inventory') set -- inventory ;;
+        '/usr/libexec/home-network-read neighbors') set -- neighbors ;;
+        '/usr/libexec/home-network-read wan') set -- wan ;;
+        '/usr/libexec/home-network-read stats'|'nlbw -c json -g mac') set -- stats ;;
+        *) printf '%s\n' 'Command not permitted' >&2; exit 126 ;;
+    esac
+fi
+
+case "${1:-}" in
+    neighbors)
+        # Keep native dev fields; filtering with `dev` omits them on OpenWrt.
+        # Host exporter only accepts br-lan, DHCP agreement and REACHABLE.
+        exec ip -4 neigh show
+        ;;
+    stats)
+        exec /usr/sbin/nlbw -c json -g mac
+        ;;
+    inventory)
+        . /lib/functions.sh
+        . /usr/share/libubox/jshn.sh
+        json_init
+        json_add_array hosts
+        add_host() {
+            local name mac ip
+            config_get name "$1" name
+            config_get mac "$1" mac
+            config_get ip "$1" ip
+            json_add_object ''
+            json_add_string name "$name"
+            json_add_string mac "$mac"
+            json_add_string ip "$ip"
+            json_close_object
+        }
+        config_load dhcp
+        config_foreach add_host host
+        json_close_array
+        json_add_array leases
+        if [ -r /tmp/dhcp.leases ]; then
+            while read -r expiry mac ip name rest; do
+                json_add_object ''
+                json_add_string name "$name"
+                json_add_string mac "$mac"
+                json_add_string ip "$ip"
+                json_close_object
+            done < /tmp/dhcp.leases
+        fi
+        json_close_array
+        json_dump
+        ;;
+    wan)
+        status=$(ubus call network.interface.wan status)
+        device=$(printf '%s' "$status" | jsonfilter -e '@.l3_device')
+        uptime=$(printf '%s' "$status" | jsonfilter -e '@.uptime')
+        case "$device" in ''|*[!a-zA-Z0-9_.:-]*) exit 1;; esac
+        read -r rx < "/sys/class/net/$device/statistics/rx_bytes"
+        read -r tx < "/sys/class/net/$device/statistics/tx_bytes"
+        printf '{"device":"%s","rx_bytes":%s,"tx_bytes":%s,"uptime":%s}\n' "$device" "$rx" "$tx" "$uptime"
+        ;;
+    *) printf '%s\n' 'Usage: home-network-read stats|inventory|wan|neighbors' >&2; exit 126 ;;
+esac

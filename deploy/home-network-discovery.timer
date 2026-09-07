@@ -1,0 +1,8 @@
+[Unit]
+Description=Refresh discovery evidence every 30 seconds
+[Timer]
+OnBootSec=10
+OnUnitActiveSec=30
+AccuracySec=1
+[Install]
+WantedBy=timers.target

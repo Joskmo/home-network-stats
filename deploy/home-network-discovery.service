@@ -1,0 +1,10 @@
+[Unit]
+Description=Read-only router topology evidence (not authentication)
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/self-hosted-music/home-network-dashboard/app
+ExecStart=/usr/bin/python3 -m dashboard.discovery --router root@192.168.1.1 --key /home/joskmo/.ssh/openwrt_traffic_ed25519 --output /srv/self-hosted-music/home-network-dashboard/topology/discovery.json
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+TimeoutStartSec=25

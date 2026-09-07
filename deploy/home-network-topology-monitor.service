@@ -1,0 +1,21 @@
+[Unit]
+Description=Home network manual topology ICMP monitor (host only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/self-hosted-music/home-network-dashboard/app
+ExecStart=/usr/bin/python3 -m dashboard.topology --directory /srv/self-hosted-music/home-network-dashboard/topology
+Restart=on-failure
+RestartSec=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+RestrictAddressFamilies=AF_INET AF_UNIX
+LockPersonality=true
+MemoryMax=128M
+TasksMax=24
+
+[Install]
+WantedBy=default.target

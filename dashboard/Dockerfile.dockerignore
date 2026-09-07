@@ -1,0 +1,15 @@
+**
+!dashboard/
+!dashboard/**
+!package.json
+!package-lock.json
+!tsconfig.json
+!frontend/
+!frontend/**
+!scripts/
+!scripts/**
+**/__pycache__/
+**/*.pyc
+dashboard/static/app.js
+dashboard/static/topology.js
+dashboard/static/security.js

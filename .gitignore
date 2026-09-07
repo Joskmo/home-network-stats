@@ -1,0 +1,40 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.env
+.env.*
+!*.env.example
+*.sqlite*
+*.db*
+*.png
+*.log
+runtime.env
+telegram-token
+*.pem
+*.key
+id_*
+.openwrt*
+data/
+secrets/
+auth/
+speed/
+.DS_Store
+
+# Local agent coordination notes and QA artifacts
+*_HANDOFF.md
+artifacts/
+.hermes/
+
+# Container build contexts also exclude runtime material (see .dockerignore)
+
+# Frontend dependencies, generated bundles and local browser evidence
+node_modules/
+.build/
+dashboard/static/app.js
+dashboard/static/topology.js
+dashboard/static/security.js
+output/
+.playwright-cli/
+*.tsbuildinfo
