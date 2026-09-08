@@ -39,6 +39,10 @@ const api = createApi(
   () => state,
   () => language,
   t,
+  (fresh) => {
+    // Transport recovery must not call view()/emit hn-session: the map owns a live draft.
+    state = fresh;
+  },
 );
 window.dashboardBridge = {
   version: 1,

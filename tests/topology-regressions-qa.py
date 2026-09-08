@@ -46,6 +46,7 @@ class EditorLifecycle(unittest.TestCase):
         }""")
         self.page.add_script_tag(path=str(ROOT / "dashboard/static/topology.js"))
         self.page.wait_for_selector(".map-node")
+        self.page.locator(".map-inventory > summary").click()
 
     def tearDown(self):
         self.page.close()

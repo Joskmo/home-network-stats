@@ -47,11 +47,12 @@ export interface Observation {
   medium: "wifi" | "via";
   observation: true;
   label: string;
-  source_port?: never;
+  source_port?: string;
   target_port?: never;
 }
 export interface Graph {
   revision: number;
+  routes?: Record<string, Point[]>;
   nodes: NetworkNode[];
   links: Cable[];
 }

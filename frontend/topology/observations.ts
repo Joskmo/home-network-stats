@@ -24,6 +24,7 @@ export function observations(graph: Graph): Observation[] {
             medium,
             observation: true,
             label: d.attachment,
+            ...(medium === "via" ? { source_port: d.attachment } : {}),
           },
         ]
       : [];
@@ -35,6 +36,9 @@ export function knownPorts(graph: Graph, n: NetworkNode): string[] {
     ...new Set(
       [
         ...(n.ports || []),
+        ...observations(graph)
+          .filter((l) => l.source === n.id && l.medium === "via")
+          .map((l) => l.source_port || ""),
         ...graph.links
           .filter((l) => l.medium !== "wifi")
           .flatMap((l) =>

@@ -5,6 +5,7 @@ import { dict } from "./i18n";
 import { layout, insertSwitch } from "./domain";
 import { openEditor } from "./editor";
 import { renderGraph } from "./rendering";
+import { canvasScale, syncRouteControls } from "./route-editor";
 import type {
   Graph,
   Monitor,
@@ -44,13 +45,16 @@ const stamp = (v: number | null) =>
         bridge.language === "ru" ? "ru-RU" : "en-GB",
       )
     : tr("never");
+const canEdit = () => !!graph && !busy && !editing;
 function syncReplacementControls() {
+  syncRouteControls(root, canEdit);
   root
     .querySelectorAll<HTMLButtonElement>("[data-replaces-graph]")
     .forEach((b) => {
       b.disabled = busy || !!editing;
     });
   $("map-save").disabled = busy || !!editing || !dirty;
+  $("map-save").title = editing ? tr("finishEditing") : "";
 }
 function setDirty() {
   $("map-preview")?.replaceChildren();
@@ -87,11 +91,31 @@ function shell() {
       positions = layout(graph);
       for (const n of graph.nodes) {
         const p = positions[n.id];
-        n.x = Math.min(1400, p.x);
-        n.y = Math.min(800, p.y);
+        n.x = Math.min(32768, p.x);
+        n.y = Math.min(32768, p.y);
       }
       setDirty();
       draw();
+    }),
+  );
+  let zoom = 1;
+  const setZoom = (value: number) => {
+    zoom = Math.max(0.25, Math.min(1.5, value));
+    $("map-canvas").style.zoom = String(zoom);
+  };
+  tools.append(
+    button(tr("zoomOut"), () => setZoom(zoom - 0.15)),
+    button(tr("zoomIn"), () => setZoom(zoom + 0.15)),
+    button(tr("fitMap"), () => {
+      const canvas = $("map-canvas");
+      setZoom(
+        Math.min(
+          1,
+          (canvas.parentElement!.clientWidth - 16) / canvas.offsetWidth,
+          (canvas.parentElement!.clientHeight - 44) / canvas.offsetHeight,
+        ),
+      );
+      canvas.parentElement!.scrollTo(0, 0);
     }),
   );
   const legend = el("div", undefined, "map-legend");
@@ -124,7 +148,9 @@ function shell() {
   root.append(scroll);
   const lists = el("div", undefined, "map-lists");
   lists.id = "map-lists";
-  root.append(lists);
+  const inventory = el("details", undefined, "map-inventory");
+  inventory.append(el("summary", tr("inventory")), lists);
+  root.append(inventory);
   const form = el("form");
   form.id = "map-form";
   form.hidden = true;
@@ -144,6 +170,21 @@ function draw() {
       editor,
       startDrag,
       splitCable,
+      canEdit,
+      changeRoute(key, points) {
+        if (!graph || !canEdit()) return;
+        const routes = { ...graph.routes };
+        if (points) {
+          if (!routes[key] && Object.keys(routes).length >= 128) {
+            say("limit");
+            return;
+          }
+          routes[key] = points;
+        } else delete routes[key];
+        graph.routes = routes;
+        setDirty();
+        draw();
+      },
     },
   );
   syncReplacementControls();
@@ -156,8 +197,8 @@ function splitCable(id: string) {
     const arranged = layout(graph);
     for (const node of graph.nodes) {
       const p = arranged[node.id];
-      node.x = Math.min(1400, p.x);
-      node.y = Math.min(800, p.y);
+      node.x = Math.min(32768, p.x);
+      node.y = Math.min(32768, p.y);
     }
     setDirty();
     draw();
@@ -178,24 +219,20 @@ function startDrag(e: PointerEvent, n: NetworkNode, b: HTMLButtonElement) {
   b.setPointerCapture(e.pointerId);
   b.onpointermove = (event) => {
     if (!drag || !graph) return;
-    const dx = event.clientX - drag.startX,
-      dy = event.clientY - drag.startY;
+    const scale = canvasScale($("map-canvas"));
+    const dx = (event.clientX - drag.startX) / scale,
+      dy = (event.clientY - drag.startY) / scale;
     if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
     if (drag.moved) {
-      if (autoView && !Object.values(positions).some((p) => p.y > 800)) {
+      if (autoView) {
         for (const node of graph.nodes) {
           node.x = positions[node.id].x;
           node.y = positions[node.id].y;
         }
         autoView = false;
       }
-      if (autoView)
-        viewOverrides[n.id] = {
-          x: Math.max(0, Math.round(drag.x + dx)),
-          y: Math.max(0, Math.round(drag.y + dy)),
-        };
-      n.x = Math.max(0, Math.min(1400, Math.round(drag.x + dx)));
-      n.y = Math.max(0, Math.min(800, Math.round(drag.y + dy)));
+      n.x = Math.max(0, Math.min(32768, Math.round(drag.x + dx)));
+      n.y = Math.max(0, Math.min(32768, Math.round(drag.y + dy)));
       b.style.left = (viewOverrides[n.id]?.x ?? n.x) + "px";
       b.style.top = (viewOverrides[n.id]?.y ?? n.y) + "px";
     }
@@ -233,6 +270,16 @@ function editor(kind: ItemKind, id?: string) {
       syncReplacementControls();
     },
     changed(id) {
+      if (graph && autoView) {
+        for (const node of graph.nodes) {
+          if (node.id !== id && positions[node.id]) {
+            node.x = positions[node.id].x;
+            node.y = positions[node.id].y;
+          }
+        }
+        autoView = false;
+        viewOverrides = {};
+      }
       delete monitor[id];
       setDirty();
       draw();
@@ -242,6 +289,7 @@ function editor(kind: ItemKind, id?: string) {
 async function refreshDiscovered() {
   if (!graph || busy || editing) return;
   busy = true;
+  syncReplacementControls();
   const generation = epoch;
   const original = JSON.stringify(graph);
   try {
@@ -308,6 +356,7 @@ async function refreshDiscovered() {
 async function load(force = false) {
   if (busy || (force && editing) || $("dashboard").hidden) return;
   busy = true;
+  syncReplacementControls();
   const generation = epoch;
   try {
     const data = await api("/api/topology");
@@ -321,10 +370,13 @@ async function load(force = false) {
     }
     if (!graph || force || (!dirty && !editing)) {
       if (force) viewOverrides = {};
-      graph = { revision: data.revision, nodes: data.nodes, links: data.links };
-      autoView =
-        !graph.links.length ||
-        Object.values(layout(graph)).some((p) => p.y > 800);
+      graph = {
+        revision: data.revision,
+        nodes: data.nodes,
+        links: data.links,
+        ...(data.routes ? { routes: data.routes } : {}),
+      };
+      autoView = !graph.links.length && graph.revision === 0;
       dirty = false;
     }
     draw();
@@ -341,6 +393,7 @@ async function load(force = false) {
 async function saveMap() {
   if (!graph || busy || editing) return;
   busy = true;
+  syncReplacementControls();
   const generation = epoch;
   root.querySelectorAll("button").forEach((b) => (b.disabled = true));
   try {
@@ -354,11 +407,15 @@ async function saveMap() {
     const e = asError(caught);
     if (generation === epoch)
       say(
-        e.status === 409
-          ? "conflict"
-          : e.status === 400
-            ? "invalid"
-            : "failure",
+        e.code === "login_required"
+          ? "sessionExpired"
+          : e.code === "csrf_failed"
+            ? "csrfFailed"
+            : e.status === 409
+              ? "conflict"
+              : e.status === 400
+                ? "invalid"
+                : "failure",
       );
   } finally {
     busy = false;

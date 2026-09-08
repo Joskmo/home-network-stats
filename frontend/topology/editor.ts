@@ -93,7 +93,7 @@ export function openEditor(
       field.maxLength = key.endsWith("_port") ? 32 : 80;
       if (field.type === "number") {
         field.min = "0";
-        field.max = key === "x" ? "1400" : "800";
+        field.max = "32768";
         field.step = "1";
       }
       input = field;

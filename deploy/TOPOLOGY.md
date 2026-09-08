@@ -39,6 +39,49 @@ Edit its actual port labels to match the hardware, then save the draft.
 Уточните номера портов коммутатора и сохраните карту. Отсутствие IP у него
 означает отсутствие ICMP-проверки, а не неисправность.
 
+## Inspect, route and zoom / Просмотр, линии и масштаб
+
+Manual cables and detected LAN paths use the same orthogonal routing, with
+obstacle avoidance and separated lanes. Hover/focus a device or port, or tap its
+port on touch screens, to inspect large endpoint labels without permanent text
+on the wires. The inspector distinguishes declared cables from forwarding
+observations. `Internet` and `WAN` are a schematic upstream marker, not a newly
+discovered host or an Internet availability measurement.
+
+Select **Adjust route** in the inspector and drag the bend handles (arrow keys
+also work); **Reset route to automatic** removes that adjustment. **Save map**
+persists device positions and route metadata. Discovery preview preserves routes;
+route geometry never changes physical connectivity. Zoom out/in and **Fit map**
+affect only the view. Editing and dragging account for the current scale.
+Saved coordinates allow `0..32768` on both axes; large maps no longer substitute
+a session-only layout for saved positions. Route metadata is optional, bounded
+to 128 routes with up to 8 points each, and backward-compatible with old maps.
+
+Наведите курсор на устройство/порт или выберите порт касанием: в панели появятся
+крупные подписи концов подключения. Постоянных надписей поверх линий нет.
+Ручные кабели и обнаруженные пути прокладываются одинаково, прямоугольными
+участками; происхождение данных указано в панели. `Internet → WAN` — обозначение
+внешнего подключения, не отдельное обнаруженное устройство и не проверка интернета.
+
+В панели подключения выберите правку маршрута и перетащите точки перегиба.
+Сброс возвращает автоматическую прокладку. **Сохранить карту** записывает и позиции
+устройств, и поправки линий; изменение трассы не меняет порты/соединения.
+Уменьшение масштаба и **Вместить карту** позволяют работать с большой схемой.
+Автоматическое обновление больше не заменяет сохранённые позиции большой карты.
+
+If saving is rejected specifically because its CSRF token expired, the client
+refreshes the session and retries the captured topology once without reloading
+the draft. Expired authorization still requires login; conflicts and network
+failures are not automatically retried. Finish or cancel an open device/cable
+editor before saving the map. An unsuccessful save does not mean the draft is
+stored: do not reload the page until it has been saved or otherwise backed up.
+
+При устаревшем CSRF-токене сессия обновляется, а сохранение повторяется один раз
+без перезагрузки черновика. Авторизация не обходится; конфликт ревизий и сетевой
+сбой не вызывают автоматического повтора. Перед сохранением примените или
+отмените открытое редактирование устройства/кабеля. При ошибке не обновляйте
+вкладку, пока черновик не сохранён или не скопирован отдельно.
+
 ## Discovery evidence / Данные обнаружения
 
 The collector reads the router's own `br-lan` address/MAC using native `ip` and

@@ -1,5 +1,14 @@
 import { $, element as el, button } from "../shared/dom";
-import { layout } from "./layout";
+import { layout, isWireless } from "./layout";
+import { anchor, cardHeight, socketPosition } from "./geometry";
+import { inspection, resetInspection } from "./interactions";
+import {
+  pathData,
+  routeKey,
+  routeOrthogonal,
+  throughWaypoints,
+} from "./routing";
+import { routeEditor } from "./route-editor";
 import { observations, knownPorts } from "./observations";
 import type {
   Graph,
@@ -8,6 +17,7 @@ import type {
   ItemKind,
   NetworkNode,
   NodeType,
+  Point,
 } from "./types";
 export interface RenderActions {
   tr(key: string): string;
@@ -19,6 +29,8 @@ export interface RenderActions {
     button: HTMLButtonElement,
   ): void;
   splitCable(id: string): void;
+  changeRoute(key: string, points?: Point[]): void;
+  canEdit(): boolean;
 }
 function svg<K extends keyof SVGElementTagNameMap>(
   tag: K,
@@ -69,7 +81,11 @@ export function renderGraph(
   if (!canvas) return positions;
   canvas.replaceChildren();
   lists.replaceChildren();
-  if (!graph) return positions;
+  if (!graph) {
+    resetInspection();
+    document.getElementById("map-inspector")?.remove();
+    return positions;
+  }
   if (!graph.nodes.length) canvas.append(el("p", tr("empty"), "map-empty"));
   positions = autoView
     ? { ...layout(graph), ...viewOverrides }
@@ -78,15 +94,15 @@ export function renderGraph(
     graph.nodes.map((n) => [n.id, knownPorts(graph, n)]),
   );
   const width = Math.max(
-      1600,
+      300,
       ...Object.values(positions).map(
-        (p) => p.x + 260 + graph.links.length * 10,
+        (p) => p.x + 248 + (graph.links.length + graph.nodes.length) * 10,
       ),
     ),
     height = Math.max(
-      920,
+      260,
       ...graph.nodes.map(
-        (n) => positions[n.id].y + 160 + Math.ceil(ports[n.id].length / 4) * 30,
+        (n) => positions[n.id].y + cardHeight(ports[n.id].length) + 64,
       ),
     );
   canvas.style.width = width + "px";
@@ -97,57 +113,97 @@ export function renderGraph(
     "aria-hidden": "true",
   });
   canvas.append(wires);
+  graph.nodes
+    .filter((n) => n.type === "router")
+    .forEach((n) => {
+      const p = positions[n.id];
+      const internet = button("Internet", () => {});
+      internet.className = "map-internet";
+      internet.dataset.owner = n.id;
+      internet.style.left = p.x + 46 + "px";
+      internet.style.top = p.y - 44 + "px";
+      internet.title = tr("uplinkHint");
+      const globe = svg("svg", { viewBox: "0 0 24 24", "aria-hidden": "true" });
+      globe.append(
+        svg("circle", { cx: 12, cy: 12, r: 9 }),
+        svg("path", { d: "M3 12h18 M12 3c-7 6-7 12 0 18 M12 3c7 6 7 12 0 18" }),
+      );
+      internet.prepend(globe);
+      const wan = el("span", "WAN", "map-wan");
+      wan.style.left = p.x + 154 + "px";
+      wan.style.top = p.y - 12 + "px";
+      wan.title = tr("uplinkHint");
+      const line = svg("path", {
+        d: `M${p.x + 100} ${p.y - 20} V${p.y - 17} H${p.x + 172} V${p.y}`,
+        class: "map-upstream",
+      });
+      const key = JSON.stringify(["wan", n.id]);
+      const points = graph.routes?.[key]
+        ? throughWaypoints(
+            { x: p.x + 100, y: p.y - 20 },
+            { x: p.x + 172, y: p.y },
+            graph.routes[key],
+          )
+        : [
+            { x: p.x + 100, y: p.y - 20 },
+            { x: p.x + 100, y: p.y - 17 },
+            { x: p.x + 172, y: p.y - 17 },
+            { x: p.x + 172, y: p.y },
+          ];
+      line.setAttribute("d", pathData(points));
+      line.dataset.route = key;
+      line.dataset.points = JSON.stringify(points);
+      line.dataset.owner = n.id;
+      wires.append(line);
+      canvas.append(internet, wan);
+    });
   const observed = observations(graph);
-  const anchor = (id: string, port: string | undefined, physical: boolean) => {
-    const p = positions[id];
-    const i = ports[id].indexOf(port ?? "");
-    return physical && i >= 0
-      ? { x: p.x + 25 + (i % 4) * 52, y: p.y + 142 + Math.floor(i / 4) * 30 }
-      : { x: p.x + 104, y: p.y + 50 };
-  };
-  [...graph.links, ...observed].forEach((l, edgeIndex) => {
+  const edges = [...graph.links, ...observed];
+  edges.forEach((l, edgeIndex) => {
     if (l.medium === "wifi" || !positions[l.source] || !positions[l.target])
       return;
-    const medium = l.medium || "ethernet",
-      physical = medium === "ethernet" && !l.observation;
-    const a = anchor(l.source, l.source_port, physical),
-      b = anchor(l.target, l.target_port, physical);
-    const bend = (a.y + b.y) / 2;
-    const leftLane =
-      Math.min(positions[l.source].x, positions[l.target].x) -
-      24 -
-      edgeIndex * 10;
-    const corridor =
-      leftLane >= 8
-        ? leftLane
-        : Math.max(...Object.values(positions).map((p) => p.x)) +
-          232 +
-          edgeIndex * 10;
-    const lead = 150 + (edgeIndex % 3) * 5;
-    const ay =
-        positions[l.source].y +
-        lead +
-        Math.ceil(ports[l.source].length / 4) * 30,
-      by =
-        positions[l.target].y +
-        lead +
-        Math.ceil(ports[l.target].length / 4) * 30;
-    const d = physical
-      ? `M${a.x} ${a.y} V${ay} H${corridor} V${by} H${b.x} V${b.y}`
-      : `M${a.x} ${a.y} C${a.x} ${bend},${b.x} ${bend},${b.x} ${b.y}`;
+    const medium = l.medium || "ethernet";
+    const a = anchor(positions[l.source], ports[l.source], l.source_port),
+      b = anchor(positions[l.target], ports[l.target], l.target_port);
+    const obstacles = graph.nodes.map((n) => ({
+      ...positions[n.id],
+      width: 208,
+      height: cardHeight(ports[n.id].length),
+    }));
+    const gap = 16 + (edgeIndex % 4) * 4;
+    const exitA = {
+      x: a.x,
+      y: positions[l.source].y + cardHeight(ports[l.source].length) + gap,
+    };
+    const exitB = {
+      x: b.x,
+      y: positions[l.target].y + cardHeight(ports[l.target].length) + gap,
+    };
+    const key = routeKey(l),
+      manual = graph.routes?.[key];
+    const points = manual
+      ? throughWaypoints(a, b, manual)
+      : [a, ...routeOrthogonal(exitA, exitB, obstacles, edgeIndex), b];
+    const d = pathData(points);
     const path = svg("path", { d, class: "map-wire " + medium });
+    path.dataset.edge = String(edgeIndex);
+    path.dataset.route = key;
+    path.dataset.points = JSON.stringify(points);
+    path.dataset.source = l.source;
+    path.dataset.target = l.target;
+    path.dataset.sourcePort = l.source_port || "";
+    path.dataset.targetPort = l.target_port || "";
     wires.append(path);
-    if (l.observation)
-      wires.append(
-        svg(
-          "text",
-          { x: (a.x + b.x) / 2, y: bend - 8, class: "map-edge-label" },
-          (l.observation ? tr("evidence") + " · " : "") +
-            tr(medium) +
-            (l.label ? " · " + l.label : ""),
-        ),
-      );
   });
+  if (autoView) {
+    const wireless = graph.nodes.filter((n) => isWireless(graph, n.id));
+    if (wireless.length) {
+      const zone = el("div", tr("wirelessZone"), "map-wireless-zone");
+      zone.style.top =
+        Math.min(...wireless.map((n) => positions[n.id].y)) - 36 + "px";
+      canvas.append(zone);
+    }
+  }
   const nodeList = el("div");
   nodeList.append(el("h3", tr("nodes")));
   graph.nodes.forEach((n) => {
@@ -159,6 +215,7 @@ export function renderGraph(
     b.className = "map-node " + status.state + " type-" + n.type;
     b.style.left = p.x + "px";
     b.style.top = p.y + "px";
+    b.style.height = cardHeight(ports[n.id].length) + "px";
     b.dataset.node = n.id;
     b.append(
       icon(n.type),
@@ -187,16 +244,48 @@ export function renderGraph(
     )
       b.append(el("small", tr("unmapped"), "map-unknown"));
     b.title = tr("checked") + ": " + stamp(status.checked_at);
-    b.addEventListener("pointerdown", (e) => startDrag(e, n, b));
-    canvas.append(b);
-    ports[n.id].forEach((label, i) => {
-      const socket = button(label, () => editor("nodes", n.id));
-      socket.className = "map-port";
-      socket.title = n.name + " · " + label;
-      socket.style.left = p.x + (i % 4) * 52 + "px";
-      socket.style.top = p.y + 120 + Math.floor(i / 4) * 30 + "px";
-      canvas.append(socket);
+    b.addEventListener("pointerdown", (e) => {
+      if (e.pointerType !== "touch") startDrag(e, n, b);
     });
+    canvas.append(b);
+    if (ports[n.id].length) {
+      const panel = el("span", undefined, "map-port-panel");
+      b.append(panel);
+    }
+    ports[n.id].forEach((label, i) => {
+      const socket = el("span", label, "map-port");
+      const detected =
+        observed.some((l) => l.source === n.id && l.source_port === label) &&
+        !(n.ports || []).includes(label) &&
+        !graph.links.some(
+          (l) =>
+            (l.source === n.id && l.source_port === label) ||
+            (l.target === n.id && l.target_port === label),
+        );
+      socket.classList.toggle("is-detected", detected);
+      socket.title = n.name + " · " + label;
+      socket.setAttribute(
+        "aria-label",
+        label + (detected ? " · " + tr("detected") : ""),
+      );
+      socket.dataset.owner = n.id;
+      socket.dataset.port = label;
+      const point = socketPosition(i);
+      socket.style.left = point.x + "px";
+      socket.style.top = point.y + "px";
+      b.append(socket);
+    });
+    const detectedPorts = [
+      ...b.querySelectorAll<HTMLElement>(".map-port.is-detected"),
+    ].map((socket) => socket.dataset.port);
+    if (detectedPorts.length)
+      b.append(
+        el(
+          "span",
+          tr("detected") + ": " + detectedPorts.join(", "),
+          "map-port-note",
+        ),
+      );
     const row = el("div", undefined, "map-row");
     row.append(
       el("span", n.name + " · " + (n.ip || "—") + " · " + tr(status.state)),
@@ -247,5 +336,25 @@ export function renderGraph(
     linkList.append(row);
   });
   lists.append(linkList);
+  // Include routed detours and user waypoints in the scrollable bounds.
+  const allPoints = [
+    ...canvas.querySelectorAll<SVGPathElement>("[data-points]"),
+  ].flatMap((path) => JSON.parse(path.dataset.points!) as Point[]);
+  const routedWidth = Math.max(width, ...allPoints.map((p) => p.x + 30));
+  const routedHeight = Math.max(height, ...allPoints.map((p) => p.y + 30));
+  canvas.style.width = routedWidth + "px";
+  canvas.style.height = routedHeight + "px";
+  wires.setAttribute("viewBox", `0 0 ${routedWidth} ${routedHeight}`);
+  const editRoute = routeEditor(
+    canvas,
+    graph,
+    tr,
+    actions.changeRoute,
+    actions.canEdit,
+  );
+  const interactions = inspection(canvas, graph, edges, tr, editRoute);
+  canvas
+    .querySelectorAll<HTMLButtonElement>(".map-node")
+    .forEach((node) => interactions.bind(node, node.dataset.node!));
   return positions;
 }

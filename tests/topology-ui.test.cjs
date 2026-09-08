@@ -129,3 +129,42 @@ test("typed transport sends latest CSRF and preserves HTTP conflict/retry metada
     global.fetch = original;
   }
 });
+
+test("orthogonal routing avoids an intervening device and keeps endpoints", () => {
+  const a = { x: 30, y: 20 },
+    b = { x: 300, y: 200 };
+  const obstacles = [{ x: 80, y: 0, width: 120, height: 180 }];
+  const points = ui.routeOrthogonal(a, b, obstacles, 0);
+  assert.deepEqual(points[0], a);
+  assert.deepEqual(points.at(-1), b);
+  for (let i = 1; i < points.length; i++) {
+    const p = points[i - 1],
+      q = points[i];
+    assert.ok(p.x === q.x || p.y === q.y, "orthogonal segments only");
+    assert.ok(
+      !(p.x === q.x
+        ? p.x > 80 &&
+          p.x < 200 &&
+          Math.max(p.y, q.y) > 0 &&
+          Math.min(p.y, q.y) < 180
+        : p.y > 0 &&
+          p.y < 180 &&
+          Math.max(p.x, q.x) > 80 &&
+          Math.min(p.x, q.x) < 200),
+      "does not cross a card",
+    );
+  }
+  assert.equal(
+    ui.routeKey({ id: "c", source: "a", target: "b" }),
+    '["manual","c"]',
+  );
+  assert.equal(
+    ui.routeKey({
+      source: "a",
+      target: "b",
+      source_port: "lan2",
+      observation: true,
+    }),
+    '["observed","a","b","lan2",""]',
+  );
+});

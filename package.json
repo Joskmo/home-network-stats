@@ -5,7 +5,7 @@
   "scripts": {
     "build": "npm run typecheck && node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/build.mjs --tests && node --test tests/topology-ui.test.cjs",
+    "test": "node scripts/build.mjs --tests && node --test tests/*.test.cjs",
     "format:check": "prettier --check \"frontend/**/*.ts\" scripts/build.mjs package.json tsconfig.json tests/topology-ui.test.cjs"
   },
   "devDependencies": {

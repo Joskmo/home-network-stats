@@ -51,6 +51,22 @@ a badge without connecting lines. An observed LAN port means reachability throug
 that interface; it does not assert that a switch exists or that a cable is direct.
 An unmanaged switch and its internal port mapping remain explicit user input.
 
+## Map presentation principles
+
+The map is a monitoring/inspection surface, not an always-labelled wiring report.
+Keep connections quiet until the user inspects a device or port. Draw identifiable
+port sockets on devices and attach each connection to its corresponding socket.
+Show large endpoint names and port labels in an inspector, not repeated SVG text
+over the cables. Hover, keyboard focus and touch must all expose this information.
+An observed interface is not a verified chassis socket: mark the evidence and
+leave an unknown remote port unknown. Never invent port numbers or Wi-Fi cables.
+
+References inspected for these general interaction principles (not dependencies):
+- [yFiles Network Monitoring](https://www.yfiles.com/demos/showcase/networkmonitoring/):
+  distinct device symbols, unobtrusive connections, contextual details.
+- [React Flow handles](https://reactflow.dev/learn/customization/handles):
+  multiple individually identified connection points on a node.
+
 ## Build and delivery
 
 - `frontend/` is the browser source of truth. `tsconfig.json` enforces strict typing.

@@ -36,7 +36,7 @@ def lan_ip(value):
 
 
 def validate(value):
-    if not isinstance(value, dict) or set(value) != {'revision', 'nodes', 'links'}:
+    if not isinstance(value, dict) or not {'revision', 'nodes', 'links'} <= set(value) <= {'revision', 'nodes', 'links', 'routes'}:
         raise ValueError('Invalid topology')
     revision = value['revision']
     if type(revision) is not int or not 0 <= revision < 2**53: raise ValueError('Invalid revision')
@@ -71,7 +71,7 @@ def validate(value):
             seen = d['last_seen']
             if type(seen) not in (int,float) or not math.isfinite(seen) or seen < 0: raise ValueError('Invalid observation time')
             n['discovery']['last_seen'] = seen
-        for k, bound in (('x', 1400), ('y', 800)):
+        for k, bound in (('x', 32768), ('y', 32768)):
             if type(node[k]) not in (int, float) or not math.isfinite(node[k]) or not 0 <= node[k] <= bound: raise ValueError('Invalid coordinate')
             n[k] = node[k]
         if n['mac'] and any(old['mac'].lower()==n['mac'].lower() for old in result['nodes']): raise ValueError('Duplicate MAC')
@@ -89,6 +89,39 @@ def validate(value):
             if item['medium'] not in {'ethernet', 'wifi'}:
                 raise ValueError('Invalid connection medium')
         link_ids.add(item['id']); result['links'].append(item)
+    if 'routes' in value:
+        routes = value['routes']
+        if not isinstance(routes, dict) or len(routes) > 128:
+            raise ValueError('Invalid routes')
+        result['routes'] = {}
+        for key, points in routes.items():
+            if not isinstance(key, str): raise ValueError('Invalid route key')
+            try:
+                parts = json.loads(key)
+            except (ValueError, RecursionError) as exc:
+                raise ValueError('Invalid route key') from exc
+            if not isinstance(parts, list) or not parts or not all(isinstance(p, str) for p in parts):
+                raise ValueError('Invalid route key')
+            if parts[0] in ('manual', 'wan') and len(parts) == 2:
+                route_ids = parts[1:]
+            elif parts[0] == 'observed' and len(parts) == 5:
+                route_ids = parts[1:3]
+                for port in parts[3:]: text(port, 32, empty=True)
+            else:
+                raise ValueError('Invalid route key')
+            for route_id in route_ids:
+                if identifier(route_id) != route_id: raise ValueError('Invalid route ID')
+            if not isinstance(points, list) or len(points) > 8:
+                raise ValueError('Invalid route points')
+            for point in points:
+                if not isinstance(point, dict) or set(point) != {'x', 'y'}:
+                    raise ValueError('Invalid route point')
+                for coordinate in point.values():
+                    if type(coordinate) not in (int, float) or not 0 <= coordinate <= 32768 or not math.isfinite(coordinate):
+                        raise ValueError('Invalid route coordinate')
+            # Display metadata only: stale IDs are safe; never infer links or evidence.
+            # Preserve exact keys (including port strings), without normalization.
+            result['routes'][key] = [dict(point) for point in points]
     return result
 
 

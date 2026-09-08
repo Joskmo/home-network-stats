@@ -52,3 +52,5 @@ export function insertSwitch(
     ],
   };
 }
+
+export { routeKey, routeOrthogonal } from "./routing";

@@ -10,8 +10,33 @@ export const dict: Record<Language, Record<string, string>> = {
       "Discovery unavailable or older than 90 seconds. Your map is unchanged. Retry after the next 30-second sample.",
     discoveryHint:
       "MAC identifies discovered devices; IP/name may change. Manual names, positions and cables are kept. Forwarding ports mean reachable via, not directly plugged in. Intermediate switches and offloaded paths may be invisible. Evidence is not authentication proof. Apply to draft, then Save map.",
-    title: "Your physical network",
-    hint: "Routers → switches / access points → clients. Cables join labeled sockets; Wi-Fi uses device badges without lines. Dotted paths are forwarding observations, not physical cables.",
+    zoomOut: "Zoom out",
+    zoomIn: "Zoom in",
+    fitMap: "Fit map",
+    adjustRoute: "Adjust route",
+    resetRoute: "Reset route to automatic",
+    routeBend: "Route bend",
+    routeDragHint:
+      "Drag to route · arrow keys move 10px, Shift moves 1px. Save map to keep changes.",
+    uplink: "Schematic uplink",
+    uplinkHint:
+      "Internet uplink schematic · WAN chassis mapping, provider and Internet health are not measured.",
+    inspect: "Inspect a connection",
+    inspectHint:
+      "Hover or focus a device to trace its ports. Tap to keep details open.",
+    clearInspection: "Clear inspection",
+    unknownPort: "port unknown",
+    detected: "Detected interface",
+    detectedHint:
+      "Forwarding observation · reachable via this interface. Direct cable and physical chassis socket are not confirmed.",
+    manual: "Manual cable",
+    manualHint:
+      "User-defined endpoints · not independently verified by discovery.",
+    noConnection: "No mapped cable. Physical attachment is unknown.",
+    wirelessZone: "Wireless · no cable paths",
+    inventory: "Devices & connections · edit map",
+    title: "Network topology",
+    hint: "Cables and detected LAN paths, one port at a time. Wi-Fi stays wireless. Inspect a device to see endpoints and what is actually known.",
     monitor:
       "ICMP from the server every 30 seconds. No reply does NOT prove a device is offline. No IP / stale sample = unknown.",
     add: "Add device",
@@ -53,6 +78,12 @@ export const dict: Record<Language, Record<string, string>> = {
     invalid:
       "Check fields: use a name, LAN IP 192.168.1.1–254 (or blank), valid MAC, and two different devices with port labels.",
     failure: "Unable to load/save map. Your draft is kept; retry.",
+    sessionExpired:
+      "Session expired. Your draft is kept in this window. Sign in in another tab, then retry Save map here. Do not reload this page.",
+    csrfFailed:
+      "The security token could not be renewed. Your draft is kept in this window. Retry Save map; if it fails again, sign in in another tab. Do not reload this page.",
+    finishEditing:
+      "Before saving, finish or cancel the current device/connection edit.",
     conflict:
       "Another editor saved first. Your draft is kept. Reload to discard it and use the saved map.",
     limit: "Maximum 64 devices / 128 cables.",
@@ -67,7 +98,7 @@ export const dict: Record<Language, Record<string, string>> = {
     via: "Observed LAN port",
     unmapped: "Attachment unknown",
     layoutHint:
-      "Topology view · arrange to organize branches; drag to fine-tune. Large maps use a virtual scrollable layout; fine adjustments there last for this session.",
+      "Arrange branches automatically, then drag to fine-tune. Zoom out or fit the map; save to keep device positions and adjusted routes.",
     phone: "Phone",
     laptop: "Laptop",
     desktop: "Desktop",
@@ -85,8 +116,32 @@ export const dict: Record<Language, Record<string, string>> = {
       "Нет свежих данных (до 90 секунд). Карта не изменена. Повторите после следующего 30-секундного сбора.",
     discoveryHint:
       "Устройства определяются по MAC; IP и имя могут меняться. Ваши имена, позиции и кабели сохраняются. Порт означает путь через него, а не прямой кабель. Промежуточные коммутаторы и аппаратные пути могут быть невидимы. Наблюдения не подтверждают право доступа. Примените к черновику, затем сохраните карту.",
-    title: "Физическая карта сети",
-    hint: "Роутеры → коммутаторы / точки доступа → клиенты. Кабели соединяют подписанные порты; Wi-Fi обозначен значком на устройстве, без линий. Точечные пути — наблюдения, а не физические кабели.",
+    zoomOut: "Уменьшить",
+    zoomIn: "Увеличить",
+    fitMap: "Вписать карту",
+    adjustRoute: "Изменить маршрут",
+    resetRoute: "Автоматический маршрут",
+    routeBend: "Изгиб маршрута",
+    routeDragHint:
+      "Перетаскивайте · стрелки на 10px, Shift на 1px. Сохраните карту для записи изменений.",
+    uplink: "Схема внешнего подключения",
+    uplinkHint:
+      "Схема выхода в Интернет · разъём WAN, провайдер и доступность Интернета не проверены.",
+    inspect: "Проверить соединение",
+    inspectHint:
+      "Наведите или выберите устройство клавиатурой. Касание закрепляет детали.",
+    clearInspection: "Сбросить выбор",
+    unknownPort: "порт неизвестен",
+    detected: "Обнаруженный интерфейс",
+    detectedHint:
+      "Наблюдение таблицы коммутации · доступен через интерфейс. Прямой кабель и разъём корпуса не подтверждены.",
+    manual: "Кабель задан вручную",
+    manualHint: "Порты заданы пользователем · обнаружение их не подтверждает.",
+    noConnection: "Кабель не задан. Физическое подключение неизвестно.",
+    wirelessZone: "Беспроводные · без кабельных линий",
+    inventory: "Устройства и соединения · редактирование",
+    title: "Топология сети",
+    hint: "Кабели и обнаруженные LAN-пути по портам. Wi-Fi — без проводов. Выберите устройство, чтобы увидеть порты и достоверность подключения.",
     monitor:
       "ICMP с сервера каждые 30 секунд. Нет ответа НЕ означает, что устройство выключено. Нет IP / свежего замера = неизвестно.",
     add: "Добавить устройство",
@@ -129,6 +184,12 @@ export const dict: Record<Language, Record<string, string>> = {
       "Проверьте поля: название, IP 192.168.1.1–254 (или пусто), MAC и два разных устройства с названиями портов.",
     failure:
       "Не удалось загрузить/сохранить карту. Черновик сохранён в окне; повторите.",
+    sessionExpired:
+      "Сеанс истёк. Черновик оставлен в этом окне. Войдите в другой вкладке, затем повторите сохранение карты здесь. Не перезагружайте эту страницу.",
+    csrfFailed:
+      "Не удалось обновить защитный токен. Черновик оставлен в этом окне. Повторите сохранение карты; если ошибка повторится, войдите в другой вкладке. Не перезагружайте эту страницу.",
+    finishEditing:
+      "Чтобы сохранить карту, завершите или отмените текущее редактирование устройства/соединения.",
     conflict:
       "Карту уже изменили в другом окне. Черновик оставлен. Загрузите сохранённую карту, чтобы отменить его.",
     limit: "Максимум 64 устройства / 128 кабелей.",
@@ -143,7 +204,7 @@ export const dict: Record<Language, Record<string, string>> = {
     via: "Обнаруженный LAN-порт",
     unmapped: "Подключение неизвестно",
     layoutHint:
-      "Иерархия сети · авторазмещение по ветвям; перетаскивание для точной настройки. Большие карты используют виртуальную прокрутку; точные сдвиги в ней действуют в этом сеансе.",
+      "Разместите ветви автоматически и уточните перетаскиванием. Уменьшайте масштаб или вместите всю карту; сохранение закрепляет позиции устройств и поправки линий.",
     phone: "Телефон",
     laptop: "Ноутбук",
     desktop: "Компьютер",

@@ -18,6 +18,7 @@ with sync_playwright() as p:
     page.evaluate('''() => {window.fixture={revision:1,nodes:[{id:'r',name:'Router',type:'router',ip:'192.168.1.1',mac:'',x:40,y:40,ports:['LAN 1','LAN 2']},{id:'p',name:'Phone',type:'phone',ip:'',mac:'',x:300,y:300,discovery:{source:'iw station',attachment:'phy0-ap0',last_seen:1,confidence:'Observed'}},{id:'d',name:'Desktop',type:'desktop',ip:'',mac:'',x:600,y:300,ports:['eth0']}],links:[{id:'c',source:'r',target:'d',source_port:'LAN 1',target_port:'eth0'}]};window.api=async (url,body)=>{if(url==='/api/topology/preview')return structuredClone(body.topology);if(window.failSave&&body){const error=new Error('conflict');error.status=409;throw error;}if(body){window.saved=JSON.parse(JSON.stringify(body.topology));return window.saved;}return window.fixture;};window.dashboardBridge={version:1,session:{authenticated:true},language:'en',translate:key=>key,replaceSession(session){this.session=session},api:window.api};}''')
     page.add_script_tag(path=str(ROOT/'dashboard/static/topology.js'))
     page.wait_for_selector('.map-node')
+    page.locator('.map-inventory > summary').click()
     assert page.locator('.map-node > svg').count()==3,'device SVG icons missing'
     assert page.locator('.map-port').count()>=3,'labeled port sockets missing'
     assert page.locator('.map-wire.wifi').count()==0,'WiFi observations must not draw lines'

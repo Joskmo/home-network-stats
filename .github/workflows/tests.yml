@@ -33,3 +33,6 @@ jobs:
       - run: python tests/topology-ui-qa.py
       - run: python tests/topology-integration-qa.py
       - run: python tests/topology-regressions-qa.py
+      - run: python tests/topology-ports-qa.py
+      - run: python tests/topology-route-errors-qa.py
+      - run: python tests/topology-large-map-qa.py

@@ -81,6 +81,24 @@ def run():
                 page.locator('[data-node="desktop"]').wait_for()
                 assert 'QA Workstation' in page.locator('[data-node="desktop"]').inner_text()
                 assert 'Laptop' in page.locator('[data-node="desktop"]').inner_text()
+                # Real HTTP route write + full document reload; no synthetic node.
+                page.locator('[data-node="desktop"]').hover()
+                page.get_by_role('button',name='Adjust route',exact=True).click()
+                page.locator('.map-route-handle').first.focus()
+                page.keyboard.press('ArrowRight')
+                page.locator('#map-save').click()
+                expect(page.locator('#map-save')).to_be_disabled()
+                route_key='["manual","ethernet"]'
+                route=store.read()['routes'][route_key]
+                assert route and len(store.read()['nodes'])==3
+                page.reload()
+                page.locator('[data-node="desktop"]').wait_for()
+                assert store.read()['routes'][route_key]==route
+                page.locator('[data-node="desktop"]').hover()
+                page.get_by_role('button',name='Adjust route',exact=True).click()
+                assert page.locator('.map-route-handle').count()==len(route)
+                page.get_by_role('button',name='Clear inspection',exact=True).click()
+                page.locator(".map-inventory > summary").click()
                 page.get_by_role('button', name='Insert switch', exact=True).click()
                 expect(page.locator('.map-node')).to_have_count(4)
                 positions = page.locator('.map-node').evaluate_all('(nodes) => Object.fromEntries(nodes.map(n => [n.dataset.node, [n.style.left, n.style.top]]))')
@@ -99,6 +117,7 @@ def run():
                 expect(page.locator('.map-node')).to_have_count(4)
                 restored = page.locator('.map-node').evaluate_all('(nodes) => Object.fromEntries(nodes.map(n => [n.dataset.node, [n.style.left, n.style.top]]))')
                 assert restored == positions, (positions, restored)
+                page.locator(".map-inventory > summary").click()
                 expect(page.get_by_role('button', name='Insert switch', exact=True)).to_have_count(2)
                 output = Path('output/playwright'); output.mkdir(parents=True, exist_ok=True)
                 page.locator('#topology').screenshot(path=str(output/'topology-http-desktop.png'))
