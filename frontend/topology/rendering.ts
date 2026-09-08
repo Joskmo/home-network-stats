@@ -1,15 +1,11 @@
 import { $, element as el, button } from "../shared/dom";
 import { layout, isWireless } from "./layout";
-import { anchor, cardHeight, socketPosition } from "./geometry";
+import { CARD_WIDTH, endpoint, portPlans } from "./geometry";
+import type { Endpoint } from "./geometry";
 import { inspection, resetInspection } from "./interactions";
-import {
-  pathData,
-  routeKey,
-  routeOrthogonal,
-  throughWaypoints,
-} from "./routing";
+import { pathData, routeKey, routeCable, throughWaypoints } from "./routing";
 import { routeEditor } from "./route-editor";
-import { observations, knownPorts } from "./observations";
+import { observations } from "./observations";
 import type {
   Graph,
   Monitor,
@@ -90,9 +86,8 @@ export function renderGraph(
   positions = autoView
     ? { ...layout(graph), ...viewOverrides }
     : Object.fromEntries(graph.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
-  const ports = Object.fromEntries(
-    graph.nodes.map((n) => [n.id, knownPorts(graph, n)]),
-  );
+  const plans = portPlans(graph);
+  const docks = new Map<string, Endpoint[]>();
   const width = Math.max(
       300,
       ...Object.values(positions).map(
@@ -101,9 +96,7 @@ export function renderGraph(
     ),
     height = Math.max(
       260,
-      ...graph.nodes.map(
-        (n) => positions[n.id].y + cardHeight(ports[n.id].length) + 64,
-      ),
+      ...graph.nodes.map((n) => positions[n.id].y + plans[n.id].height + 64),
     );
   canvas.style.width = width + "px";
   canvas.style.height = height + "px";
@@ -112,6 +105,9 @@ export function renderGraph(
     class: "map-wires",
     "aria-hidden": "true",
   });
+  // Local socket-to-perimeter segments must paint above the card background.
+  // The socket itself remains above this layer, and the SVG never eats clicks.
+  wires.style.zIndex = "1";
   canvas.append(wires);
   graph.nodes
     .filter((n) => n.type === "router")
@@ -159,31 +155,69 @@ export function renderGraph(
     });
   const observed = observations(graph);
   const edges = [...graph.links, ...observed];
+  const laneKeys = edges
+    .filter((l) => l.medium !== "wifi")
+    .map(routeKey)
+    .sort();
   edges.forEach((l, edgeIndex) => {
     if (l.medium === "wifi" || !positions[l.source] || !positions[l.target])
       return;
     const medium = l.medium || "ethernet";
-    const a = anchor(positions[l.source], ports[l.source], l.source_port),
-      b = anchor(positions[l.target], ports[l.target], l.target_port);
+    const center = (id: string) => ({
+      x: positions[id].x + CARD_WIDTH / 2,
+      y: positions[id].y + plans[id].height / 2,
+    });
+    const downstreamSource = positions[l.source].y > positions[l.target].y;
+    const upstream = downstreamSource ? l.target : l.source;
+    const downstream = downstreamSource ? l.source : l.target;
+    const upstreamPort = downstreamSource ? l.target_port : l.source_port;
+    const socketOrder = plans[upstream].ports.findIndex(
+      (p) => p.label === upstreamPort,
+    );
+    const ordinal =
+      (socketOrder < 0 ? laneKeys.indexOf(routeKey(l)) : socketOrder) % 8;
+    const lane =
+      positions[downstream].x > positions[upstream].x ? 7 - ordinal : ordinal;
+    const a = endpoint(
+        positions[l.source],
+        plans[l.source],
+        l.source_port,
+        center(l.target),
+        lane,
+      ),
+      b = endpoint(
+        positions[l.target],
+        plans[l.target],
+        l.target_port,
+        center(l.source),
+        lane,
+      );
+    for (const [id, dock] of [
+      [l.source, a],
+      [l.target, b],
+    ] as const)
+      if (dock.unknown) {
+        const existing = docks.get(id) || [];
+        if (
+          !existing.some(
+            (d) => d.point.x === dock.point.x && d.point.y === dock.point.y,
+          )
+        )
+          existing.push(dock);
+        docks.set(id, existing);
+      }
     const obstacles = graph.nodes.map((n) => ({
       ...positions[n.id],
-      width: 208,
-      height: cardHeight(ports[n.id].length),
+      width: CARD_WIDTH,
+      height: plans[n.id].height,
     }));
-    const gap = 16 + (edgeIndex % 4) * 4;
-    const exitA = {
-      x: a.x,
-      y: positions[l.source].y + cardHeight(ports[l.source].length) + gap,
-    };
-    const exitB = {
-      x: b.x,
-      y: positions[l.target].y + cardHeight(ports[l.target].length) + gap,
-    };
     const key = routeKey(l),
       manual = graph.routes?.[key];
     const points = manual
-      ? throughWaypoints(a, b, manual)
-      : [a, ...routeOrthogonal(exitA, exitB, obstacles, edgeIndex), b];
+      ? throughWaypoints(a.point, b.point, manual)
+      : downstreamSource
+        ? routeCable(b, a, obstacles, lane).reverse()
+        : routeCable(a, b, obstacles, lane);
     const d = pathData(points);
     const path = svg("path", { d, class: "map-wire " + medium });
     path.dataset.edge = String(edgeIndex);
@@ -193,6 +227,8 @@ export function renderGraph(
     path.dataset.target = l.target;
     path.dataset.sourcePort = l.source_port || "";
     path.dataset.targetPort = l.target_port || "";
+    path.dataset.anchorSource = a.side;
+    path.dataset.anchorTarget = b.side;
     wires.append(path);
   });
   if (autoView) {
@@ -215,7 +251,8 @@ export function renderGraph(
     b.className = "map-node " + status.state + " type-" + n.type;
     b.style.left = p.x + "px";
     b.style.top = p.y + "px";
-    b.style.height = cardHeight(ports[n.id].length) + "px";
+    b.style.height = plans[n.id].height + "px";
+    b.style.paddingTop = plans[n.id].headerTop + 23 + "px";
     b.dataset.node = n.id;
     b.append(
       icon(n.type),
@@ -248,11 +285,25 @@ export function renderGraph(
       if (e.pointerType !== "touch") startDrag(e, n, b);
     });
     canvas.append(b);
-    if (ports[n.id].length) {
+    if (plans[n.id].ports.some((p) => p.side === "bottom")) {
       const panel = el("span", undefined, "map-port-panel");
+      panel.style.top = plans[n.id].bottomTop - 8 + "px";
       b.append(panel);
     }
-    ports[n.id].forEach((label, i) => {
+    if (plans[n.id].headerTop) {
+      const panel = el("span", undefined, "map-port-panel");
+      Object.assign(panel.style, {
+        top: "0px",
+        bottom: "auto",
+        height: plans[n.id].headerTop + "px",
+        borderRadius: "10px 10px 0 0",
+        borderTop: "0",
+        borderBottom: "1px solid #52636b",
+      });
+      b.append(panel);
+    }
+    plans[n.id].ports.forEach((point) => {
+      const { label } = point;
       const socket = el("span", label, "map-port");
       const detected =
         observed.some((l) => l.source === n.id && l.source_port === label) &&
@@ -270,22 +321,62 @@ export function renderGraph(
       );
       socket.dataset.owner = n.id;
       socket.dataset.port = label;
-      const point = socketPosition(i);
+      socket.dataset.side = point.side;
+      if (point.side === "top") {
+        // Rotate the physical socket/notch, not its real interface label.
+        socket.style.transform = "rotate(180deg)";
+        const text = el("span", label);
+        Object.assign(text.style, {
+          display: "block",
+          transform: "rotate(180deg)",
+        });
+        socket.replaceChildren(text);
+      }
       socket.style.left = point.x + "px";
       socket.style.top = point.y + "px";
       b.append(socket);
     });
+    for (const dock of docks.get(n.id) || []) {
+      const socket = el("span", undefined, "map-dock");
+      const vertical = dock.side === "top" || dock.side === "bottom";
+      const w = vertical ? 6 : 3,
+        h = vertical ? 3 : 6;
+      socket.dataset.owner = n.id;
+      socket.dataset.side = dock.side;
+      socket.setAttribute("aria-hidden", "true");
+      Object.assign(socket.style, {
+        position: "absolute",
+        boxSizing: "border-box",
+        width: w + "px",
+        height: h + "px",
+        background: "#c3b781",
+        borderRadius: "1px",
+        left:
+          dock.point.x -
+          p.x -
+          (vertical ? w / 2 : dock.side === "right" ? w : 0) +
+          "px",
+        top:
+          dock.point.y -
+          p.y -
+          (!vertical ? h / 2 : dock.side === "bottom" ? h : 0) +
+          "px",
+      });
+      b.append(socket);
+    }
     const detectedPorts = [
       ...b.querySelectorAll<HTMLElement>(".map-port.is-detected"),
     ].map((socket) => socket.dataset.port);
-    if (detectedPorts.length)
-      b.append(
-        el(
-          "span",
-          tr("detected") + ": " + detectedPorts.join(", "),
-          "map-port-note",
-        ),
+    if (detectedPorts.length) {
+      const note = el(
+        "span",
+        tr("detected") + ": " + detectedPorts.join(", "),
+        "map-port-note",
       );
+      note.style.top = plans[n.id].headerTop + 96 + "px";
+      note.style.bottom = "auto";
+      b.append(note);
+    }
     const row = el("div", undefined, "map-row");
     row.append(
       el("span", n.name + " · " + (n.ip || "—") + " · " + tr(status.state)),
@@ -352,7 +443,7 @@ export function renderGraph(
     actions.changeRoute,
     actions.canEdit,
   );
-  const interactions = inspection(canvas, graph, edges, tr, editRoute);
+  const interactions = inspection(canvas, graph, edges, tr, editRoute, actions);
   canvas
     .querySelectorAll<HTMLButtonElement>(".map-node")
     .forEach((node) => interactions.bind(node, node.dataset.node!));

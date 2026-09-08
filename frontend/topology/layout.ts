@@ -1,6 +1,6 @@
 import type { Graph, NetworkNode, Positions } from "./types";
-import { knownPorts, observations } from "./observations";
-import { cardHeight } from "./geometry";
+import { observations } from "./observations";
+import { naturalOrder, portPlans, topologyDepths } from "./geometry";
 const rank = (n: NetworkNode): number =>
   n.type === "router" ? 0 : n.type === "switch" || n.type === "ap" ? 1 : 2;
 export function isWireless(graph: Graph, id: string): boolean {
@@ -12,34 +12,12 @@ export function layout(graph: Graph): Positions {
   const nodes = [...graph.nodes].sort(
     (a, b) => rank(a) - rank(b) || a.id.localeCompare(b.id),
   );
-  const depth = new Map<string, number>(),
-    queue: string[] = [];
-  nodes
-    .filter((n) => n.type === "router")
-    .forEach((n) => {
-      depth.set(n.id, 0);
-      queue.push(n.id);
-    });
-  if (!queue.length && nodes.length) {
-    depth.set(nodes[0].id, 0);
-    queue.push(nodes[0].id);
-  }
+  const depth = topologyDepths(graph),
+    plans = portPlans(graph);
   const edges = [...graph.links, ...observations(graph)].filter(
     (l) => l.medium !== "wifi",
   );
-  for (let i = 0; i < queue.length; i++)
-    for (const l of edges) {
-      const id =
-        l.source === queue[i]
-          ? l.target
-          : l.target === queue[i]
-            ? l.source
-            : null;
-      if (id && !depth.has(id)) {
-        depth.set(id, (depth.get(queue[i]) ?? 0) + 1);
-        queue.push(id);
-      }
-    }
+
   const groups = new Map<number, NetworkNode[]>();
   nodes.forEach((n) => {
     const d = isWireless(graph, n.id) ? 100 : (depth.get(n.id) ?? rank(n));
@@ -56,16 +34,48 @@ export function layout(graph: Graph): Positions {
     .sort((a, b) => a - b)
     .forEach((d) => {
       const group = groups.get(d)!;
+      const parent = (id: string) =>
+        edges
+          .flatMap((l) => {
+            const other =
+              l.source === id
+                ? l.target
+                : l.target === id
+                  ? l.source
+                  : undefined;
+            return other && (depth.get(other) ?? Infinity) < d
+              ? [
+                  {
+                    id: other,
+                    port:
+                      (l.source === other ? l.source_port : l.target_port) ||
+                      "",
+                  },
+                ]
+              : [];
+          })
+          .sort(
+            (a, b) =>
+              (result[a.id]?.x ?? 0) - (result[b.id]?.x ?? 0) ||
+              naturalOrder(a.port, b.port),
+          )[0];
+      group.sort((a, b) => {
+        const pa = parent(a.id),
+          pb = parent(b.id);
+        return (
+          (pa && pb
+            ? (result[pa.id]?.x ?? 0) - (result[pb.id]?.x ?? 0) ||
+              naturalOrder(pa.port, pb.port)
+            : 0) || naturalOrder(a.id, b.id)
+        );
+      });
       if (d === 100) y += 40;
       for (let offset = 0; offset < group.length; offset += 4) {
         const row = group.slice(offset, offset + 4);
         row.forEach((n, i) => {
           result[n.id] = { x: 48 + (columns - row.length) * 126 + i * 252, y };
         });
-        y += Math.max(
-          220,
-          ...row.map((n) => cardHeight(knownPorts(graph, n).length) + 72),
-        );
+        y += Math.max(220, ...row.map((n) => plans[n.id].height + 112));
       }
     });
   return result;

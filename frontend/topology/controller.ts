@@ -5,7 +5,13 @@ import { dict } from "./i18n";
 import { layout, insertSwitch } from "./domain";
 import { openEditor } from "./editor";
 import { renderGraph } from "./rendering";
-import { canvasScale, syncRouteControls } from "./route-editor";
+import {
+  canvasScale,
+  syncRouteControls,
+  isRouteDragging,
+} from "./route-editor";
+import { createViewport } from "./viewport";
+import { disposeInspection } from "./interactions";
 import type {
   Graph,
   Monitor,
@@ -46,6 +52,7 @@ const stamp = (v: number | null) =>
       )
     : tr("never");
 const canEdit = () => !!graph && !busy && !editing;
+const viewport = createViewport();
 function syncReplacementControls() {
   syncRouteControls(root, canEdit);
   root
@@ -64,6 +71,8 @@ function setDirty() {
   syncReplacementControls();
 }
 function shell() {
+  viewport.dispose();
+  disposeInspection();
   root.replaceChildren();
   root.append(el("h2", tr("title")), el("p", tr("hint"), "muted"));
   const details = el("details");
@@ -84,39 +93,12 @@ function shell() {
   tools.append(
     button(tr("add"), () => editor("nodes")),
     button(tr("link"), () => editor("links")),
-    button(tr("arrange"), () => {
-      if (!graph || busy) return;
-      viewOverrides = {};
-      autoView = true;
-      positions = layout(graph);
-      for (const n of graph.nodes) {
-        const p = positions[n.id];
-        n.x = Math.min(32768, p.x);
-        n.y = Math.min(32768, p.y);
-      }
-      setDirty();
-      draw();
-    }),
+    button(tr("arrange"), arrange),
   );
-  let zoom = 1;
-  const setZoom = (value: number) => {
-    zoom = Math.max(0.25, Math.min(1.5, value));
-    $("map-canvas").style.zoom = String(zoom);
-  };
   tools.append(
-    button(tr("zoomOut"), () => setZoom(zoom - 0.15)),
-    button(tr("zoomIn"), () => setZoom(zoom + 0.15)),
-    button(tr("fitMap"), () => {
-      const canvas = $("map-canvas");
-      setZoom(
-        Math.min(
-          1,
-          (canvas.parentElement!.clientWidth - 16) / canvas.offsetWidth,
-          (canvas.parentElement!.clientHeight - 44) / canvas.offsetHeight,
-        ),
-      );
-      canvas.parentElement!.scrollTo(0, 0);
-    }),
+    button(tr("zoomOut"), () => viewport.zoomBy(-0.15)),
+    button(tr("zoomIn"), () => viewport.zoomBy(0.15)),
+    button(tr("fitMap"), () => viewport.fit()),
   );
   const legend = el("div", undefined, "map-legend");
   ["ethernet", "via", "unmapped"].forEach((k) =>
@@ -145,7 +127,16 @@ function shell() {
   const canvas = el("div", undefined, "map-canvas");
   canvas.id = "map-canvas";
   scroll.append(canvas);
-  root.append(scroll);
+  const workspace = el("div", undefined, "map-workspace");
+  workspace.append(scroll);
+  root.append(workspace);
+  viewport.attach(scroll, canvas);
+  scroll.addEventListener("mapaction", (e) => {
+    const action = (e as CustomEvent<string>).detail;
+    if (action === "fitMap") viewport.fit();
+    if (action === "arrange") arrange();
+    if (action === "add" && canEdit()) editor("nodes");
+  });
   const lists = el("div", undefined, "map-lists");
   lists.id = "map-lists";
   const inventory = el("details", undefined, "map-inventory");
@@ -155,6 +146,19 @@ function shell() {
   form.id = "map-form";
   form.hidden = true;
   root.append(form);
+  draw();
+}
+function arrange() {
+  if (!graph || !canEdit()) return;
+  viewOverrides = {};
+  autoView = true;
+  positions = layout(graph);
+  for (const n of graph.nodes) {
+    const p = positions[n.id];
+    n.x = Math.min(32768, p.x);
+    n.y = Math.min(32768, p.y);
+  }
+  setDirty();
   draw();
 }
 function draw() {
@@ -207,7 +211,7 @@ function splitCable(id: string) {
   }
 }
 function startDrag(e: PointerEvent, n: NetworkNode, b: HTMLButtonElement) {
-  if (e.button !== 0 || busy || !graph) return;
+  if (e.button !== 0 || !canEdit() || !graph) return;
   drag = {
     id: n.id,
     startX: e.clientX,
@@ -218,7 +222,10 @@ function startDrag(e: PointerEvent, n: NetworkNode, b: HTMLButtonElement) {
   };
   b.setPointerCapture(e.pointerId);
   b.onpointermove = (event) => {
-    if (!drag || !graph) return;
+    if (!drag || !graph || !canEdit()) {
+      drag = null;
+      return;
+    }
     const scale = canvasScale($("map-canvas"));
     const dx = (event.clientX - drag.startX) / scale,
       dy = (event.clientY - drag.startY) / scale;
@@ -354,6 +361,7 @@ async function refreshDiscovered() {
   }
 }
 async function load(force = false) {
+  if (!force && (drag || isRouteDragging() || viewport.interacting)) return;
   if (busy || (force && editing) || $("dashboard").hidden) return;
   busy = true;
   syncReplacementControls();

@@ -23,7 +23,7 @@ with sync_playwright() as p:
     assert page.locator('.map-port').count()>=3,'labeled port sockets missing'
     assert page.locator('.map-wire.wifi').count()==0,'WiFi observations must not draw lines'
     assert page.locator('[data-node="p"] .map-wifi-badge').count()==1,'WiFi badge must remain'
-    assert page.evaluate('''() => {const wire=document.querySelector('.map-wire.ethernet'),canvas=document.getElementById('map-canvas').getBoundingClientRect();return ['Router · LAN 1','Desktop · eth0'].every((title,i)=>{const r=[...document.querySelectorAll('.map-port')].find(p=>p.title===title).getBoundingClientRect(),a=wire.getPointAtLength(i?wire.getTotalLength():0);return Math.abs(a.x-(r.x-canvas.x+r.width/2))<1&&Math.abs(a.y-(r.bottom-canvas.y))<1&&r.height===22;});}'''),'wire endpoint must match actual socket bottom-center'
+    assert page.evaluate('''() => {const wire=document.querySelector('.map-wire.ethernet'),canvas=document.getElementById('map-canvas').getBoundingClientRect();return ['Router · LAN 1','Desktop · eth0'].every((title,i)=>{const socket=[...document.querySelectorAll('.map-port')].find(p=>p.title===title),r=socket.getBoundingClientRect(),a=wire.getPointAtLength(i?wire.getTotalLength():0),edge=socket.dataset.side==='top'?r.top:r.bottom;return Math.abs(a.x-(r.x-canvas.x+r.width/2))<1&&Math.abs(a.y-(edge-canvas.y))<1&&r.height===22;});}'''),'wire endpoint must match actual directional socket edge'
     page.evaluate('Object.defineProperty(crypto,"randomUUID",{value:undefined,configurable:true})')
     page.get_by_role('button',name='Insert switch',exact=True).click()
     page.get_by_role('button',name='Save map',exact=True).click()
@@ -31,7 +31,14 @@ with sync_playwright() as p:
     assert len(saved['nodes'])==4 and len(saved['links'])==2
     assert saved['links'][0]['source_port']=='LAN 1' and saved['links'][1]['target_port']=='eth0'
     assert saved['nodes'][-1]['ip']==''
-    assert page.evaluate('''() => {const paths=[...document.querySelectorAll('.map-wire.ethernet')].map(p=>p.getAttribute('d'));const lanes=paths.map(d=>d.match(/H([\\d.]+)/)[1]);return new Set(lanes).size===lanes.length;}'''),'serial cables must not share a bus lane'
+    assert page.evaluate('''() => {
+      const paths=[...document.querySelectorAll('.map-wire.ethernet')].map(p=>JSON.parse(p.dataset.points));
+      const segments=points=>points.slice(1).map((p,i)=>[points[i],p]);
+      const overlap=(a,b,c,d,axis)=>Math.min(Math.max(a[axis],b[axis]),Math.max(c[axis],d[axis]))>Math.max(Math.min(a[axis],b[axis]),Math.min(c[axis],d[axis]))+0.1;
+      return segments(paths[0]).every(([a,b])=>segments(paths[1]).every(([c,d])=>
+        !(a.x===b.x&&c.x===d.x&&a.x===c.x&&overlap(a,b,c,d,'y')) &&
+        !(a.y===b.y&&c.y===d.y&&a.y===c.y&&overlap(a,b,c,d,'x'))));
+    }'''),'serial cables must not share a bus segment, including straight paths'
     page.get_by_role('button',name='Auto arrange',exact=True).click()
     page.locator('[data-node="p"]').click()
     page.locator('#map-type').select_option('laptop')

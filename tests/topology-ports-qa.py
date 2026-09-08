@@ -48,9 +48,9 @@ with sync_playwright() as p:
     assert page.locator('.map-wire.via').count() == 2
     assert page.locator('.map-wire.wifi').count() == 0
     assert page.locator('[data-node="w"] .map-wifi-badge').count() == 1
-    assert page.evaluate("""() => {const c=document.querySelector('.map-canvas').getBoundingClientRect();return [...document.querySelectorAll('.map-wire')].every(w=>['source','target'].every((side,i)=>{const id=w.dataset[side],port=w.dataset[side+'Port'];const socket=[...document.querySelectorAll('.map-port')].find(s=>s.dataset.owner===id&&s.dataset.port===port);if(!socket)return !port;const b=socket.getBoundingClientRect(),p=w.getPointAtLength(i?w.getTotalLength():0);return Math.abs(p.x-(b.x-c.x+b.width/2))<1&&Math.abs(p.y-(b.bottom-c.y))<1;}));}"""), "Edges must attach to actual on-screen sockets"
+    assert page.evaluate("""() => {const c=document.querySelector('.map-canvas').getBoundingClientRect();return [...document.querySelectorAll('.map-wire')].every(w=>['source','target'].every((side,i)=>{const id=w.dataset[side],port=w.dataset[side+'Port'];const socket=[...document.querySelectorAll('.map-port')].find(s=>s.dataset.owner===id&&s.dataset.port===port);if(!socket)return !port;const b=socket.getBoundingClientRect(),p=w.getPointAtLength(i?w.getTotalLength():0),edge=socket.dataset.side==='top'?b.top:b.bottom;return Math.abs(p.x-(b.x-c.x+b.width/2))<1&&Math.abs(p.y-(edge-c.y))<1;}));}"""), "Edges must attach to actual on-screen directional sockets"
     page.mouse.move(0, 0)
-    page.wait_for_timeout(300)
+    page.wait_for_function("document.querySelectorAll('.map-wire.is-active').length === 0")
     assert page.locator(".map-wire.is-active").count() == 0
     page.locator('[data-node="s"]').focus()
     assert "Manual" in inspector.inner_text()

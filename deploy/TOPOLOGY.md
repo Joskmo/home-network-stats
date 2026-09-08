@@ -48,11 +48,20 @@ on the wires. The inspector distinguishes declared cables from forwarding
 observations. `Internet` and `WAN` are a schematic upstream marker, not a newly
 discovered host or an Internet availability measurement.
 
-Select **Adjust route** in the inspector and drag the bend handles (arrow keys
-also work); **Reset route to automatic** removes that adjustment. **Save map**
+Click a cable itself to select it and reveal bend handles; drag a handle to
+adjust the path. Double-click the cable to add a bend. The cable's right-click
+menu also offers route actions, including a reset to automatic routing. A bend
+can be removed without deleting the physical connection. **Adjust route** in
+the inspector remains an alternative keyboard-accessible entry point.
+**Save map**
 persists device positions and route metadata. Discovery preview preserves routes;
 route geometry never changes physical connectivity. Zoom out/in and **Fit map**
-affect only the view. Editing and dragging account for the current scale.
+affect only the view. Trackpad pinch (Chrome's Ctrl+wheel event) zooms around
+the pointer; ordinary two-finger scrolling pans the field. Space+drag and the
+middle mouse button also pan. These gestures are scoped to the map, not the
+whole dashboard, and do not modify the saved graph. Editing and dragging
+account for the current scale. Escape dismisses context actions/selection;
+right-click outside the map retains the browser's native menu.
 Saved coordinates allow `0..32768` on both axes; large maps no longer substitute
 a session-only layout for saved positions. Route metadata is optional, bounded
 to 128 routes with up to 8 points each, and backward-compatible with old maps.
@@ -63,11 +72,31 @@ to 128 routes with up to 8 points each, and backward-compatible with old maps.
 участками; происхождение данных указано в панели. `Internet → WAN` — обозначение
 внешнего подключения, не отдельное обнаруженное устройство и не проверка интернета.
 
-В панели подключения выберите правку маршрута и перетащите точки перегиба.
-Сброс возвращает автоматическую прокладку. **Сохранить карту** записывает и позиции
+Нажмите прямо на линию: появятся ручки для перетаскивания. Двойной щелчок добавляет
+точку, а ПКМ открывает действия с маршрутом, включая сброс к автоматической
+прокладке. Удаление точки не удаляет кабель. Правка через панель подключения
+тоже остаётся доступной. **Сохранить карту** записывает и позиции
 устройств, и поправки линий; изменение трассы не меняет порты/соединения.
-Уменьшение масштаба и **Вместить карту** позволяют работать с большой схемой.
+Pinch на тачпаде масштабирует карту относительно указателя, прокрутка двумя
+пальцами перемещает поле. Дополнительно работают пробел + перетаскивание и
+средняя кнопка мыши. Жесты действуют только над картой, а не над всей страницей.
+Кнопки масштаба и **Вписать карту** остаются доступны. ПКМ вне карты не перехватывается.
 Автоматическое обновление больше не заменяет сохранённые позиции большой карты.
+
+### Editor model / Устройство редактора
+
+The editor separates the saved graph, port-aware layout/routing, viewport, and
+selection/tools. Endpoint placement is a display decision, not a new physical
+connection: incoming ports can appear on the upper bank and outgoing ports on
+the lower bank. Unnamed endpoints attach to a facing card boundary without
+inventing a port label. Automatic layout orders connected branches by their
+ports; stored manual coordinates and route overrides remain explicit.
+
+Редактор разделяет сохранённую карту, геометрию портов/маршрутов, область просмотра
+и инструменты выбора. Входные порты могут отображаться сверху, выходные — снизу:
+это расположение на схеме, а не изменение подключения. Неизвестный порт не
+получает выдуманного имени. Авторасстановка учитывает порядок портов; ручные
+координаты и поправки маршрутов хранятся отдельно от режима просмотра.
 
 If saving is rejected specifically because its CSRF token expired, the client
 refreshes the session and retries the captured topology once without reloading

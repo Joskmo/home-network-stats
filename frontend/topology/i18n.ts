@@ -14,10 +14,14 @@ export const dict: Record<Language, Record<string, string>> = {
     zoomIn: "Zoom in",
     fitMap: "Fit map",
     adjustRoute: "Adjust route",
+    addBend: "Add bend",
+    removeBend: "Remove bend",
+    editCable: "Edit physical cable",
+    details: "Details",
     resetRoute: "Reset route to automatic",
     routeBend: "Route bend",
     routeDragHint:
-      "Drag to route · arrow keys move 10px, Shift moves 1px. Save map to keep changes.",
+      "Drag to route · arrows move 10px, Shift moves 1px · Delete removes bend. Maximum 8 bends. Save map to keep changes.",
     uplink: "Schematic uplink",
     uplinkHint:
       "Internet uplink schematic · WAN chassis mapping, provider and Internet health are not measured.",
@@ -98,7 +102,7 @@ export const dict: Record<Language, Record<string, string>> = {
     via: "Observed LAN port",
     unmapped: "Attachment unknown",
     layoutHint:
-      "Arrange branches automatically, then drag to fine-tune. Zoom out or fit the map; save to keep device positions and adjusted routes.",
+      "Pinch to zoom; two-finger scroll to pan. Space-drag or middle-drag also pans. Click a line to adjust; double-click adds a bend. Right-click for actions. Save map to keep edits.",
     phone: "Phone",
     laptop: "Laptop",
     desktop: "Desktop",
@@ -120,10 +124,14 @@ export const dict: Record<Language, Record<string, string>> = {
     zoomIn: "Увеличить",
     fitMap: "Вписать карту",
     adjustRoute: "Изменить маршрут",
+    addBend: "Добавить изгиб",
+    removeBend: "Удалить изгиб",
+    editCable: "Изменить физический кабель",
+    details: "Детали",
     resetRoute: "Автоматический маршрут",
     routeBend: "Изгиб маршрута",
     routeDragHint:
-      "Перетаскивайте · стрелки на 10px, Shift на 1px. Сохраните карту для записи изменений.",
+      "Перетаскивайте · стрелки на 10px, Shift на 1px · Delete удаляет изгиб. Максимум 8 изгибов. Сохраните карту для записи изменений.",
     uplink: "Схема внешнего подключения",
     uplinkHint:
       "Схема выхода в Интернет · разъём WAN, провайдер и доступность Интернета не проверены.",
@@ -204,7 +212,7 @@ export const dict: Record<Language, Record<string, string>> = {
     via: "Обнаруженный LAN-порт",
     unmapped: "Подключение неизвестно",
     layoutHint:
-      "Разместите ветви автоматически и уточните перетаскиванием. Уменьшайте масштаб или вместите всю карту; сохранение закрепляет позиции устройств и поправки линий.",
+      "Щипок меняет масштаб; прокрутка двумя пальцами перемещает карту. Также: пробел с перетаскиванием или средняя кнопка. Нажмите линию для правки; двойное нажатие добавит изгиб. Правая кнопка — действия. Сохраните карту после правок.",
     phone: "Телефон",
     laptop: "Ноутбук",
     desktop: "Компьютер",

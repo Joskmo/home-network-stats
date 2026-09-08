@@ -36,6 +36,9 @@ class EditorLifecycle(unittest.TestCase):
             {id:'d',name:'Desktop',type:'desktop',ip:'',mac:'',x:400,y:300,ports:['eth0']}
           ],links:[{id:'c',source:'r',target:'d',source_port:'LAN 1',target_port:'eth0'}]};
           window.calls=[];
+          // Expose only the scheduled topology poll in this isolated fixture.
+          const nativeInterval=window.setInterval.bind(window);
+          window.setInterval=(fn,ms)=>{if(ms===15000)window.pollTopology=fn;return nativeInterval(fn,ms)};
           window.dashboardBridge={version:1,session:{authenticated:true},language:'en',translate:k=>k,
             replaceSession(s){this.session=s},api:async(url,body)=>{
               calls.push({url,write:!!body});

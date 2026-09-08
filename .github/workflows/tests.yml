@@ -36,3 +36,5 @@ jobs:
       - run: python tests/topology-ports-qa.py
       - run: python tests/topology-route-errors-qa.py
       - run: python tests/topology-large-map-qa.py
+      - run: python tests/topology-routing-v2-qa.py
+      - run: python tests/topology-editor-v2-qa.py
